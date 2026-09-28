@@ -1,0 +1,117 @@
+name: data-ml-infra
+
+services:
+
+  # ============================================================
+  # BASE DE DATOS INTERNA DE KESTRA
+  # ============================================================
+
+  kestra_db:
+    image: postgres:17-alpine
+
+    environment:
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: kestra
+      POSTGRES_DB: kestra
+
+    volumes:
+      - kestra-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestra -d kestra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ============================================================
+  # KESTRA
+  # ============================================================
+
+  kestra:
+    image: kestra/kestra:v1.3.37
+
+    user: "root"
+
+    command: ["server", "standalone"]
+
+    ports:
+      - "9090:8080"
+
+    env_file:
+      - .env
+
+    environment:
+
+      # Snowflake
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://kestra_db:5432/kestra
+            driver-class-name: org.postgresql.Driver
+            username: kestra
+            password: kestra
+
+        kestra:
+          server:
+            basic-auth:
+              enabled: false
+
+          repository:
+            type: postgres
+
+          queue:
+            type: postgres
+
+          storage:
+            type: local
+            local:
+              base-path: /app/storage
+
+          tasks:
+            tmp-dir:
+              path: /tmp/kestra-wd/tmp
+
+          url: http://localhost:9090/
+
+    volumes:
+      - kestra-storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/kestra-wd:/tmp/kestra-wd
+
+    depends_on:
+      kestra_db:
+        condition: service_healthy
+
+
+  # ============================================================
+  # IMAGEN DE NUESTRO PIPELINE
+  # No se levanta permanentemente.
+  # La utilizaremos para Python y dbt.
+  # ============================================================
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: nyc-taxi-pipeline:1.0
+
+    env_file:
+      - .env
+
+    profiles:
+      - pipeline
+
+
+volumes:
+
+  kestra-db-data:
+  kestra-storage:

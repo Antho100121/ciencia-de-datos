@@ -1,0 +1,17 @@
+.env
+
+__pycache__/
+*.pyc
+*.pyo
+
+target/
+dbt_packages/
+logs/
+
+data/
+downloads/
+
+.DS_Store
+.vscode/
+
+*.log
