@@ -1,0 +1,17 @@
+.env
+.git
+.gitignore
+
+__pycache__
+*.pyc
+*.pyo
+
+data
+downloads
+
+target
+dbt_packages
+logs
+
+.vscode
+.DS_Store
